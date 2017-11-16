@@ -22,6 +22,11 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <time.h>
+#include <libgen.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <dirent.h>
 
 #include <fluent-bit/flb_info.h>
 #include <fluent-bit/flb_input.h>
@@ -685,7 +690,7 @@ int flb_tail_file_to_event(struct flb_tail_file *file)
     }
 
     /* Check if this file have been rotated */
-    name = flb_tail_file_name(file);
+    name = flb_tail_file_name_no_procfs(file);
     if (strcmp(name, file->name) != 0) {
         ret = stat(name, &st_rotated);
         if (ret == -1) {
@@ -717,34 +722,53 @@ int flb_tail_file_to_event(struct flb_tail_file *file)
  * Given an open file descriptor, return the filename. This function is a
  * bit slow and it aims to be used only when a file is rotated.
  */
-char *flb_tail_file_name(struct flb_tail_file *file)
+char *flb_tail_file_name_no_procfs(struct flb_tail_file *file)
 {
+    /* stat the file and stat the file descriptor if they're not the */
+    /* same device and inode then scan the directory for all entries */
+    /* go through each and see what has the same inode and device */
+
+    /* if that doesn't exist, throw in the towel and return null.  In */
+    /* > 99% of the cases I've seen logs get rotated into the same */
+    /* folder */
+
+    struct stat sb;
+    DIR *dirp = NULL;
     int ret;
-    ssize_t s;
-    char tmp[128];
+    char *dirpath;
+    char *fn_cpy;
     char *buf;
+    struct dirent *entry;
 
-    ret = snprintf(tmp, sizeof(tmp) - 1, "/proc/%i/fd/%i", getpid(), file->fd);
-    if (ret == -1) {
-        flb_errno();
+    ret = stat(file->name, &sb);
+    if (ret != -1) {
+        if (file->inode == sb.st_ino) {
+            buf = flb_strndup(file->name, file->name_len);
+            return buf;
+        }
+    }
+
+    fn_cpy = flb_strndup(file->name, file->name_len);
+    dirpath = dirname(fn_cpy);
+    dirp = opendir(dirpath);
+    flb_free(fn_cpy);
+    if (dirp == NULL) {
+        perror("opendir");
+        flb_error("[%s] opendir error %s", file->name, dirpath);
         return NULL;
     }
 
-    buf = flb_malloc(PATH_MAX);
-    if (!buf) {
-        flb_errno();
-        return NULL;
+    entry = readdir(dirp);
+    while(entry != NULL) {
+        if (entry->d_ino == file->inode) {
+            buf = flb_strndup(entry->d_name, entry->d_reclen);
+            return buf;
+        }
+        entry = readdir(dirp);
     }
 
-    s = readlink(tmp, buf, PATH_MAX);
-    if (s == -1) {
-        flb_free(buf);
-        flb_errno();
-        return NULL;
-    }
-    buf[s] = '\0';
-
-    return buf;
+    // http://www.reactiongifs.us/we-aint-found-shit/
+    return NULL;
 }
 
 /* Invoked every time a file was rotated */
@@ -767,7 +791,7 @@ int flb_tail_file_rotated(struct flb_tail_file *file)
     }
 
     /* Get the new file name */
-    name = flb_tail_file_name(file);
+    name = flb_tail_file_name_no_procfs(file);
     if (!name) {
         return -1;
     }

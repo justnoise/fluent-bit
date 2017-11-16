@@ -43,7 +43,7 @@ option(FLB_TESTS_INTERNAL     "Enabel internal tests"        No)
 option(FLB_MTRACE             "Enable mtrace support"        No)
 option(FLB_BUFFERING          "Enable buffering support"     No)
 option(FLB_POSIX_TLS          "Force POSIX thread storage"   No)
-option(FLB_WITHOUT_INOTIFY    "Disable inotify support"      No)
+option(FLB_WITHOUT_INOTIFY    "Disable inotify support"      Yes)
 option(FLB_SQLDB              "Enable SQL embedded DB"       No)
 option(FLB_HTTP_SERVER        "Enable HTTP Server"           No)
 

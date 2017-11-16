@@ -106,7 +106,7 @@ static int tail_fs_check(struct flb_input_instance *i_ins,
         }
 
         /* Discover the current file name for the open file descriptor */
-        name = flb_tail_file_name(file);
+        name = flb_tail_file_name_no_procfs(file);
         if (!name) {
             flb_debug("[in_tail] could not resolve %s, removing", file->name);
             flb_tail_file_remove(file);

@@ -42,9 +42,9 @@ static int _flb_time_get(struct flb_time *tm)
     tm->tm.tv_sec  = time(NULL);
     tm->tm.tv_nsec = 0;
     return 0;
-#elif __STDC_VERSION__ >= 201112L
-    /* C11 supported! */
-    return timespec_get(&tm->tm, TIME_UTC);
+/* #elif __STDC_VERSION__ >= 201112L */
+/*     /\* C11 supported! *\/ */
+/*     return timespec_get(&tm->tm, TIME_UTC); */
 #else /* __STDC_VERSION__ */
     return clock_gettime(CLOCK_REALTIME, &tm->tm);
 #endif
